@@ -1,0 +1,139 @@
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: app-rgd
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: WebApplication
+    spec:
+      name: string
+      image: string | required=true
+      replicas: integer | default=1
+      port: integer | default=80
+      service:
+        enabled: boolean | default=true
+      liveness:
+        path: string | default="/healthz"
+        initialDelaySeconds: integer | default=30
+      readiness:
+        path: string | default="/ready"
+        initialDelaySeconds: integer | default=5
+      resources:
+        requests:
+          cpu: string | default="100m"
+          memory: string | default="128Mi"
+        limits:
+          cpu: string | default="500m"
+          memory: string | default="512Mi"
+      hpa:
+        enabled: boolean | default=false
+        minReplicas: integer | default=1  minimum=1 maximum=3
+        maxReplicas: integer | default=5 minimum=1 maximum=5
+        targetCPUUtilizationPercentage: integer | default=80
+    status:
+      deploymentConditions: ${deployment.status.conditions}
+      availableReplicas: ${deployment.status.availableReplicas}
+    additionalPrinterColumns:
+      - jsonPath: .spec.image
+        name: Image
+        type: string
+      - jsonPath: .spec.hpa.enabled
+        name: HPA
+        type: boolean
+      - jsonPath: .status.availableReplicas
+        name: Available
+        type: integer
+
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${schema.spec.name}
+        spec:
+          replicas: ${schema.spec.replicas}
+          selector:
+            matchLabels:
+              app: ${schema.spec.name}
+          template:
+            metadata:
+              labels:
+                app: ${schema.spec.name}
+            spec:
+              nodeSelector:
+                instance-type: on-demand
+              tolerations:
+                - key: instance-type
+                  operator: Equal
+                  value: "on-demand"
+                  effect: NoSchedule
+              containers:
+                - name: ${schema.spec.name}
+                  image: asia-south1-docker.pkg.dev/cncf-kcd/kcd-kochi-2026/${schema.metadata.namespace}/${schema.spec.image}
+                  ports:
+                    - containerPort: ${schema.spec.port}
+                  resources:
+                    requests:
+                      cpu: ${schema.spec.resources.requests.cpu}
+                      memory: ${schema.spec.resources.requests.memory}
+                    limits:
+                      cpu: ${schema.spec.resources.limits.cpu}
+                      memory: ${schema.spec.resources.limits.memory}
+                  livenessProbe:
+                    httpGet:
+                      path: ${schema.spec.liveness.path}
+                      port: ${schema.spec.port}
+                    initialDelaySeconds: ${schema.spec.liveness.initialDelaySeconds}
+                    periodSeconds: 10
+                    failureThreshold: 3
+                  readinessProbe:
+                    httpGet:
+                      path: ${schema.spec.readiness.path}
+                      port: ${schema.spec.port}
+                    initialDelaySeconds: ${schema.spec.readiness.initialDelaySeconds}
+                    periodSeconds: 5
+                    failureThreshold: 3
+                  envFrom:
+                    - secretRef:
+                        name: app-secrets
+
+
+    - id: service
+      includeWhen:
+        - ${schema.spec.service.enabled}
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${schema.spec.name}-svc
+        spec:
+          selector: ${deployment.spec.selector.matchLabels}
+          ports:
+            - protocol: TCP
+              port: 80
+              targetPort: ${schema.spec.port}
+
+    - id: hpa
+      includeWhen:
+        - ${schema.spec.hpa.enabled}
+      template:
+        apiVersion: autoscaling/v2
+        kind: HorizontalPodAutoscaler
+        metadata:
+          name: ${schema.spec.name}-hpa
+        spec:
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: ${schema.spec.name}
+          minReplicas: ${schema.spec.hpa.minReplicas}
+          maxReplicas: ${schema.spec.hpa.maxReplicas}
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                target:
+                  type: Utilization
+                  averageUtilization: ${schema.spec.hpa.targetCPUUtilizationPercentage}

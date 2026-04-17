@@ -1,0 +1,83 @@
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: workerapp-rgd
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: WorkerApp
+    spec:
+      name: string
+      image: string | required=true
+      tag: string | required=true
+      replicas: integer | default=3
+      hpa:
+        enabled: boolean | default=false
+        minReplicas: integer | default=1  minimum=1 maximum=3
+        maxReplicas: integer | default=5 minimum=1 maximum=5
+        targetCPUUtilizationPercentage: integer | default=50
+    status:
+      deploymentConditions: ${deployment.status.conditions}
+      availableReplicas: ${deployment.status.availableReplicas}
+
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${schema.spec.name}
+        spec:
+          replicas: ${schema.spec.replicas}
+          selector:
+            matchLabels:
+              app: ${schema.spec.name}
+          template:
+            metadata:
+              labels:
+                app: ${schema.spec.name}
+            spec:
+              containers:
+                - name: ${schema.spec.name}
+                  image: asia-south1-docker.pkg.dev/cncf-kcd/kcd-kochi-2026/${schema.spec.image}:${schema.spec.tag}
+                  resources:
+                    requests:
+                      cpu: "100m"
+                      memory: "128Mi"
+                    limits:
+                      cpu: "500m"
+                      memory: "512Mi"
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${schema.spec.name}-svc
+        spec:
+          selector: ${deployment.spec.selector.matchLabels}
+          ports:
+            - protocol: TCP
+              port: 80
+              targetPort: 80
+
+    - id: hpa
+      template:
+        apiVersion: autoscaling/v2
+        kind: HorizontalPodAutoscaler
+        metadata:
+          name: ${schema.spec.name}-hpa
+        spec:
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: ${deployment.metadata.name}
+          minReplicas: ${schema.spec.hpa.minReplicas}
+          maxReplicas: ${schema.spec.hpa.maxReplicas}
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                target:
+                  type: Utilization
+                  averageUtilization: ${schema.spec.hpa.targetCPUUtilizationPercentage}

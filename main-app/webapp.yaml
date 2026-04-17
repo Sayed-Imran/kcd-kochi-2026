@@ -1,0 +1,13 @@
+apiVersion: kro.run/v1alpha1
+kind: Application
+metadata:
+  name: my-app-instance
+spec:
+  name: my-app
+  replicas: 1
+  image: 
+  hpa: 
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 50

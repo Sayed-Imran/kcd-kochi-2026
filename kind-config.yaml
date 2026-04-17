@@ -4,3 +4,27 @@ name: kcd-kochi-2026
 nodes:
   - role: control-plane
     image: kindest/node:v1.35.0
+  - role: worker
+    image: kindest/node:v1.35.0
+    labels:
+      instance-type: spot
+    kubeadmConfigPatches:
+    - |
+      kind: JoinConfiguration
+      nodeRegistration:
+        taints:
+        - key: instance-type
+          value: spot
+          effect: NoSchedule
+  - role: worker
+    image: kindest/node:v1.35.0
+    kubeadmConfigPatches:
+    - |
+      kind: JoinConfiguration
+      nodeRegistration:
+        taints:
+        - key: instance-type
+          value: on-demand
+          effect: NoSchedule
+  - role: worker
+    image: kindest/node:v1.35.0
