@@ -7,13 +7,17 @@ IMAGE_LIST=(
     "ecr-public.aws.com/docker/library/redis:8.2.3-alpine"
     "ghcr.io/dexidp/dex:v2.45.1"
     "quay.io/argoproj/argocd:v3.3.7"
+    "registry.k8s.io/metrics-server/metrics-server:v0.8.1"
+    "asia-south1-docker.pkg.dev/cncf-kcd/kcd-kochi-2026/backend:2026-04-15-2"
+    "asia-south1-docker.pkg.dev/cncf-kcd/kcd-kochi-2026/prod/backend:2026-04-15-3"
+
 )
 
 echo "Checking for kind cluster..."
 CLUSTER_NAME=$(kind get clusters 2>/dev/null | head -n 1)
 
 if [ -z "$CLUSTER_NAME" ]; then
-    echo "Error: No kind cluster found. Please create a cluster first."
+    echo "Error: No kind cluster found. Please create a c/luster first."
     exit 1
 fi
 
@@ -50,3 +54,26 @@ for IMAGE in "${IMAGE_LIST[@]}"; do
 done
 
 echo "Image loading process completed!"
+
+echo "Installing metrics server..."
+
+# Install metrics-server with modifications for kind cluster
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+echo "Waiting for metrics-server deployment to be created..."
+sleep 5
+
+# Patch metrics-server to work with kind cluster (disable TLS verification)
+kubectl patch deployment metrics-server -n kube-system --type='json' -p='[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/args/-",
+    "value": "--kubelet-insecure-tls"
+  }
+]'
+
+echo "Waiting for metrics-server to be ready..."
+kubectl wait --for=condition=available --timeout=120s deployment/metrics-server -n kube-system
+
+echo "Metrics server installed successfully!"
+echo ""

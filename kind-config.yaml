@@ -18,6 +18,8 @@ nodes:
           effect: NoSchedule
   - role: worker
     image: kindest/node:v1.35.0
+    labels:
+      instance-type: on-demand
     kubeadmConfigPatches:
     - |
       kind: JoinConfiguration
