@@ -2,6 +2,7 @@ apiVersion: kro.run/v1alpha2
 kind: WorkerApp
 metadata:
   name: workerapp
+  namespace: prod
 spec:
   name: workerapp
   replicas: 1
