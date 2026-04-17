@@ -1,0 +1,16 @@
+apiVersion: kro.run/v1alpha1
+kind: WebApplication
+metadata:
+  name: webapp-1
+  namespace: prod
+spec:
+  name: webapp
+  image: backend:2026-04-15-3
+  port: 8000
+  service:
+    enabled: true
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 80

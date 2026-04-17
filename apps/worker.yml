@@ -1,0 +1,14 @@
+apiVersion: kro.run/v1alpha2
+kind: WorkerApp
+metadata:
+  name: workerapp
+spec:
+  name: workerapp
+  replicas: 1
+  image: backend
+  tag: 2026-04-15-2
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 95
