@@ -4,7 +4,7 @@ metadata:
   name: workerapp-rgd
 spec:
   schema:
-    apiVersion: v1alpha1
+    apiVersion: v1alpha2
     kind: WorkerApp
     spec:
       name: string
@@ -48,18 +48,6 @@ spec:
                       cpu: "500m"
                       memory: "512Mi"
 
-    - id: service
-      template:
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: ${schema.spec.name}-svc
-        spec:
-          selector: ${deployment.spec.selector.matchLabels}
-          ports:
-            - protocol: TCP
-              port: 80
-              targetPort: 80
 
     - id: hpa
       template:
