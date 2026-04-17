@@ -7,5 +7,6 @@ helm repo update
 helm upgrade --install argocd argo/argo-cd \
   --namespace argocd \
   --create-namespace \
+  --version 8.5.1 \
   --wait
 
