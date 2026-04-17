@@ -8,7 +8,7 @@ spec:
     server: https://kubernetes.default.svc
   project: default
   source:
-    path: argo-apps
+    path: apps
     repoURL: https://github.com/sayed-imran/kcd-kochi-2026.git
     targetRevision: HEAD
   syncPolicy:
